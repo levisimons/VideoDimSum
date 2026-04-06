@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Video Dim Sum · Random Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Syne+Mono&display=swap" rel="stylesheet"/>
+
+<style>
+/* ── Reset & Tokens ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0c0c0f;
+  --surface:    #13131a;
+  --border:     #26263a;
+  --accent:     #7c5cfc;
+  --accent-2:   #fc5c7c;
+  --text:       #e8e6f0;
+  --muted:      #6b6885;
+  --white:      #ffffff;
+  --font-ui:    'Syne Mono', monospace;
+  --font-head:  'Syne', sans-serif;
+  --radius:     6px;
+  --glow-a:     rgba(124, 92, 252, 0.35);
+  --glow-b:     rgba(252, 92, 124, 0.25);
+}
+
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow-x: hidden;
+}
+
+/* ── Ambient gradient blobs ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 45% at 20% 0%,   rgba(124,92,252,.18) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 95%,  rgba(252,92,124,.14) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  margin-bottom: 2.8rem;
+}
+
+.eyebrow {
+  font-size: .68rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .6rem;
+}
+
+.title {
+  font-family: var(--font-head);
+  font-size: clamp(2.8rem, 9vw, 6rem);
+  font-weight: 800;
+  line-height: .92;
+  letter-spacing: -.02em;
+  /* gradient text */
+  background: linear-gradient(135deg, var(--white) 30%, var(--accent) 70%, var(--accent-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  margin-top: .9rem;
+  font-size: .75rem;
+  color: var(--muted);
+  letter-spacing: .1em;
+}
+
+.subtitle em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+/* ── Player shell ───────────────────────────────────────── */
+.player-shell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.04) inset,
+    0 32px 80px rgba(0,0,0,.6),
+    0 0 60px var(--glow-a);
+}
+
+/* 16:9 video stage */
+.video-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.video-stage iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* ── Splash screen (before first play) ─────────────────── */
+#splash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  cursor: pointer;
+  background: #000;
+  transition: opacity .35s ease;
+  z-index: 5;
+}
+
+#splash.hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-logo {
+  font-family: var(--font-head);
+  font-size: clamp(1.4rem, 5vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -.01em;
+  background: linear-gradient(135deg, rgba(255,255,255,.9) 0%, var(--accent) 60%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.play-ring {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform .2s, border-color .2s;
+}
+
+#splash:hover .play-ring {
+  transform: scale(1.1);
+  border-color: var(--accent);
+}
+
+.play-ring::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(124,92,252,.25);
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: .6; }
+  100% { transform: scale(1.55); opacity: 0;  }
+}
+
+.play-icon {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 14px 0 14px 26px;
+  border-color: transparent transparent transparent rgba(255,255,255,.9);
+  margin-left: 5px;
+}
+
+.splash-hint {
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.3);
+}
+
+/* ── Player toolbar ─────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.2rem;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+
+.counter {
+  font-size: .68rem;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.counter strong {
+  color: var(--accent);
+  font-style: normal;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-ui);
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .5rem 1.1rem;
+  border-radius: calc(var(--radius) - 1px);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(124,92,252,.4);
+}
+.btn-primary:hover {
+  background: #9174fd;
+  box-shadow: 0 0 30px rgba(124,92,252,.65);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--muted);
+  background: rgba(255,255,255,.04);
+}
+
+.btn-link {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: .5rem .4rem;
+  font-size: .68rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+.btn-link:hover { color: var(--text); }
+.btn-link svg { flex-shrink: 0; }
+
+/* ── Now-playing bar ────────────────────────────────────── */
+#now-playing {
+  padding: .75rem 1.2rem;
+  border-top: 1px solid var(--border);
+  display: none;
+  align-items: baseline;
+  gap: .6rem;
+  flex-wrap: wrap;
+}
+
+#now-playing.visible { display: flex; }
+
+.np-label {
+  font-size: .62rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.np-url {
+  font-size: .72rem;
+  color: var(--accent);
+  word-break: break-all;
+  opacity: .8;
+}
+
+/* ── Waveform decoration (pure CSS) ────────────────────── */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+}
+.wave-bar {
+  width: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: .5;
+  animation: wave-anim 1.2s ease-in-out infinite alternate;
+}
+.wave-bar:nth-child(1) { height: 6px;  animation-delay: 0s; }
+.wave-bar:nth-child(2) { height: 14px; animation-delay: .1s; }
+.wave-bar:nth-child(3) { height: 10px; animation-delay: .2s; }
+.wave-bar:nth-child(4) { height: 18px; animation-delay: .05s; }
+.wave-bar:nth-child(5) { height: 8px;  animation-delay: .15s; }
+.wave-bar:nth-child(6) { height: 12px; animation-delay: .25s; }
+
+@keyframes wave-anim {
+  from { transform: scaleY(1);   opacity: .4; }
+  to   { transform: scaleY(.3);  opacity: .8; }
+}
+
+/* ── Stats footer ───────────────────────────────────────── */
+.stats {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+
+.stat-value {
+  font-family: var(--font-head);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--white), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: .62rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── History pill list ──────────────────────────────────── */
+.history-section {
+  margin-top: 2.4rem;
+}
+.history-title {
+  font-size: .65rem;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .8rem;
+}
+.history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+.hist-pill {
+  font-size: .65rem;
+  padding: .25rem .6rem;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hist-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(124,92,252,.08);
+}
+.hist-pill.current {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  background: rgba(252,92,124,.08);
+}
+
+/* ── Page footer ────────────────────────────────────────── */
+footer {
+  margin-top: 4rem;
+  border-top: 1px solid var(--border);
+  padding-top: .9rem;
+  font-size: .62rem;
+  letter-spacing: .1em;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: space-between;
+}
+footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+footer a:hover { color: var(--accent); }
+
+@media (max-width: 480px) {
+  .toolbar { padding: .8rem; }
+  .stats { gap: 1rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <p class="eyebrow">Video Dim Sum · Curated Short Video</p>
+    <h1 class="title">RANDOM<br>PLAYER</h1>
+    <p class="subtitle">
+      Picks a random video from <em>61 curated clips</em> and plays it instantly.
+      No algorithms. No recommendations. Pure chance.
+    </p>
+  </header>
+
+  <!-- PLAYER -->
+  <div class="player-shell">
+
+    <div class="video-stage">
+      <!-- Splash -->
+      <div id="splash">
+        <div class="splash-logo">Video Dim Sum</div>
+        <div class="play-ring">
+          <div class="play-icon"></div>
+        </div>
+        <div class="splash-hint">Click to play a random video</div>
+      </div>
+      <!-- Embed target -->
+      <div id="embed-slot"></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="waveform" id="waveform" style="display:none">
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+      </div>
+      <span class="counter" id="counter">
+        <strong id="played-count">0</strong> / 61 played
+      </span>
+      <button class="btn btn-primary" id="btn-random">⚡ Random Video</button>
+      <button class="btn btn-ghost" id="btn-open" style="display:none">
+        ↗ Open on YouTube
+      </button>
+    </div>
+
+    <!-- Now playing -->
+    <div id="now-playing">
+      <span class="np-label">Now playing</span>
+      <span class="np-url" id="np-url">—</span>
+    </div>
+
+  </div><!-- /.player-shell -->
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value">61</span>
+      <span class="stat-label">Curated videos</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="stat-played">0</span>
+      <span class="stat-label">Played this session</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="stat-remaining">61</span>
+      <span class="stat-label">Not yet seen</span>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="history-section" id="history-section" style="display:none">
+    <div class="history-title">Session history — click to replay</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+  <footer>
+    <span>Video Dim Sum · all content © original creators</span>
+    <span>
+      <a href="https://www.youtube.com/@videodimsum" target="_blank">YouTube Channel</a>
+      &nbsp;·&nbsp;
+      <a href="https://docs.google.com/spreadsheets/d/1vu8cF-PIEEWoEuko2-VwfC554dudyF1gsTC7BjEPPjE/edit?gid=726294062" target="_blank">Source Sheet</a>
+    </span>
+  </footer>
+
+</div><!-- /.wrap -->
+
+<script>
+// ── VIDEO LIST (61 URLs from the spreadsheet, gid=726294062) ──────────────
+const VIDEOS = [
+  "https://www.youtube.com/watch?v=sUTHh1J_-BQ",
+  "https://www.youtube.com/watch?v=4SBDH5uhs4Q",
+  "https://www.youtube.com/watch?v=WMISw5_ct-I",
+  "https://www.youtube.com/watch?v=GodlHoHR9_E",
+  "https://www.youtube.com/watch?v=m5kxHTG1ZEo",
+  "https://www.youtube.com/watch?v=vi1ZAgTAxQI",
+  "https://www.youtube.com/watch?v=rFsD0u1mmQw",
+  "https://www.youtube.com/watch?v=QqD9pKp10Bk",
+  "https://www.youtube.com/watch?v=zYmpBkHQSh4",
+  "https://www.youtube.com/watch?v=k1VM7xG2VJA",
+  "https://www.youtube.com/watch?v=Db4bPNSn0gU",
+  "https://www.youtube.com/watch?v=Am7kr_lLbsw",
+  "https://www.youtube.com/watch?v=c7GL9KlGUSY",
+  "https://www.youtube.com/watch?v=xKAkmHIV3vs",
+  "https://www.youtube.com/watch?v=jhQRuly_rO0",
+  "https://www.youtube.com/watch?v=H4NxAvtyw5s",
+  "https://www.youtube.com/watch?v=u3JbujNbS2s",
+  "https://www.youtube.com/watch?v=JzfhepGvjC4",
+  "https://www.youtube.com/watch?v=Lfx59QAkO-E",
+  "https://www.youtube.com/watch?v=HGJAfmhiby0",
+  "https://www.youtube.com/watch?v=fnsVH7r9YgI",
+  "https://www.youtube.com/watch?v=wBmmtReZPtc",
+  "https://www.youtube.com/watch?v=H_kuZlKTOhs",
+  "https://www.youtube.com/watch?v=YyTruRHZsFQ",
+  "https://www.youtube.com/watch?v=s7HEfs1f25E",
+  "https://www.youtube.com/watch?v=VynZPJP3VlA",
+  "https://www.youtube.com/watch?v=4VEEelX4gc4",
+  "https://www.youtube.com/watch?v=gInOsMcigCA",
+  "https://www.youtube.com/watch?v=DWsMLMomXtQ",
+  "https://www.youtube.com/watch?v=VOahpnP8crU",
+  "https://www.youtube.com/watch?v=6ckloLGOgVo",
+  "https://www.youtube.com/watch?v=36j16Ku6kmc",
+  "https://www.youtube.com/watch?v=XBqG6vg7VzM",
+  "https://www.youtube.com/watch?v=RbhcRKsRwFM",
+  "https://www.youtube.com/watch?v=OWgbHTdmPGU",
+  "https://www.youtube.com/watch?v=YNUMtYnCU3Q",
+  "https://www.youtube.com/watch?v=Kz7b6uilBfw",
+  "https://www.youtube.com/watch?v=X5Izm1LQfw4",
+  "https://www.youtube.com/watch?v=RmHkx9P19hg",
+  "https://www.youtube.com/watch?v=vZFaoZlStqA",
+  "https://www.youtube.com/watch?v=AZTOt5WxJ40",
+  "https://www.youtube.com/watch?v=v5954_rF8tU",
+  "https://www.youtube.com/watch?v=HNcpwpagCZI",
+  "https://www.youtube.com/watch?v=mFMjzljShso",
+  "https://www.youtube.com/watch?v=jIVlExV7fCM",
+  "https://www.youtube.com/watch?v=68QTUieRsQY",
+  "https://www.youtube.com/watch?v=20TDd19oA1Q",
+  "https://www.youtube.com/watch?v=RYO81hNbjr8",
+  "https://www.youtube.com/watch?v=EDuI3VvIDIU",
+  "https://www.youtube.com/watch?v=8OYOW_ZcWZY",
+  "https://www.youtube.com/watch?v=yBa2oR3eXdo",
+  "https://www.youtube.com/watch?v=18IQcEqc1zo",
+  "https://www.youtube.com/watch?v=gcwTIqzzSyw",
+  "https://www.youtube.com/watch?v=4gE9qxX5VjE",
+  "https://www.youtube.com/watch?v=yx2k5y3-nbM",
+  "https://www.youtube.com/watch?v=Aa-M96hTFz8",
+  "https://www.youtube.com/watch?v=U6EEXc43GGM",
+  "https://www.youtube.com/watch?v=8cvwIGo1rDo",
+  "https://www.youtube.com/watch?v=vYCBhAzXkzA",
+  "https://www.youtube.com/watch?v=MqgkNQ7Tmqk",
+  "https://www.youtube.com/watch?v=F6kY3xhGfz0",
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function getVideoId(url) {
+  try {
+    return new URL(url).searchParams.get('v');
+  } catch {
+    return null;
+  }
+}
+
+function randInt(n) { return Math.floor(Math.random() * n); }
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let playedCount   = 0;
+let seenIndices   = new Set();
+let currentUrl    = null;
+let history       = []; // [{url, idx}]
+
+// ── DOM REFS ──────────────────────────────────────────────────────────────
+const splash       = document.getElementById('splash');
+const embedSlot    = document.getElementById('embed-slot');
+const btnRandom    = document.getElementById('btn-random');
+const btnOpen      = document.getElementById('btn-open');
+const npUrl        = document.getElementById('np-url');
+const nowPlaying   = document.getElementById('now-playing');
+const waveform     = document.getElementById('waveform');
+const counterEl    = document.getElementById('played-count');
+const statPlayed   = document.getElementById('stat-played');
+const statRemain   = document.getElementById('stat-remaining');
+const histSection  = document.getElementById('history-section');
+const histList     = document.getElementById('history-list');
+
+// ── CORE: pick & play ─────────────────────────────────────────────────────
+function pickRandom() {
+  // prefer unseen; once all seen, reset pool
+  let pool = VIDEOS.map((_, i) => i).filter(i => !seenIndices.has(i));
+  if (pool.length === 0) {
+    seenIndices.clear();
+    pool = VIDEOS.map((_, i) => i);
+  }
+  return pool[randInt(pool.length)];
+}
+
+function play(idx) {
+  const url = VIDEOS[idx];
+  const vid = getVideoId(url);
+  if (!vid) return;
+
+  // Dismiss splash
+  splash.classList.add('hiding');
+
+  // Build embed
+  const params = new URLSearchParams({
+    autoplay: '1',
+    rel:      '0',
+    modestbranding: '1',
+    iv_load_policy: '3',
+  });
+  embedSlot.innerHTML = `<iframe
+    src="https://www.youtube.com/embed/${vid}?${params}"
+    allow="autoplay; encrypted-media; picture-in-picture"
+    allowfullscreen
+    title="Video Dim Sum random pick"
+  ></iframe>`;
+
+  // Update state
+  currentUrl = url;
+  seenIndices.add(idx);
+  playedCount++;
+
+  // Update history
+  history.push({ url, idx });
+
+  // Update UI
+  npUrl.textContent = url;
+  nowPlaying.classList.add('visible');
+  waveform.style.display = 'flex';
+  btnOpen.style.display  = 'inline-block';
+  btnOpen.onclick = () => window.open(url, '_blank');
+
+  counterEl.textContent  = playedCount;
+  statPlayed.textContent = playedCount;
+  statRemain.textContent = Math.max(0, VIDEOS.length - seenIndices.size);
+
+  // Update history pills
+  updateHistory();
+}
+
+function playRandomVideo() {
+  play(pickRandom());
+}
+
+function updateHistory() {
+  histSection.style.display = 'block';
+  // Rebuild pills (latest first)
+  histList.innerHTML = '';
+  const items = [...history].reverse();
+  items.forEach(({ url, idx }, i) => {
+    const pill = document.createElement('button');
+    pill.className = 'hist-pill' + (i === 0 ? ' current' : '');
+    pill.title = url;
+    // show short video id as label
+    const vid = getVideoId(url) || url;
+    pill.textContent = vid;
+    pill.addEventListener('click', () => play(idx));
+    histList.appendChild(pill);
+  });
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────────────
+btnRandom.addEventListener('click', playRandomVideo);
+splash.addEventListener('click', playRandomVideo);
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+// nothing to init — wait for user click
+</script>
+</body>
+</html>
