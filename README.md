@@ -1,11 +1,11 @@
 # Video Dim Sum · Random Player
 
-A zero-dependency, single-file GitHub Pages site that randomly picks one of 61
+A zero-dependency, single-file GitHub Pages site that randomly picks one of a list of 
 curated YouTube videos (from the Video Dim Sum spreadsheet tab `gid=726294062`)
 and plays it in an embedded player.
 
 **No API key. No build step. No dependencies.**  
-All 61 video IDs are baked directly into the HTML.
+All video IDs are baked directly into the HTML.
 
 ---
 
